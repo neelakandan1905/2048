@@ -27,12 +27,12 @@ The project uses Google's official Android test app/ad unit IDs. Replace all tes
 Rewarded actions are granted only from `onUserEarnedReward`. The interstitial cooldown timestamp is persisted locally.
 
 ## Settings
-Open with the gear icon. Saved separately from the game (`settings_v1`).
+Open with the gear icon. The page follows the device: iOS Settings style (grouped lists, checkmarks, iOS alerts) on iPhone/iPad/Mac, including Safari on iPhone; Material settings (list rows with radio-button dialogs) on Android. Saved separately from the game (`settings_v1`).
 - **Difficulty** — changing it restarts the game (with a confirmation once a move has been made):
   - Easy: new tiles are 2 or 4 at random (50/50), 3 free undos.
   - Medium: classic spawns (90% 2s), 1 free undo.
   - Hard: classic spawns, no free undos, every 4th move drops two tiles.
-- **Theme** — Device (follows the phone), Light or Dark. Applies immediately.
+- **Theme** — Automatic / System default (follows the phone), Light or Dark. Applies immediately.
 - **Tile colours** — Warm sunset, Ocean cool or Vibrant rainbow. Applies immediately.
 - **Sound** — on/off. Applies immediately.
 

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 /// Surface colours of the game UI that aren't covered by Material's scheme.
@@ -58,7 +59,7 @@ class GameColors extends ThemeExtension<GameColors> {
 }
 
 class AppTheme {
-  static final dark = _build(
+  static ThemeData get dark => _build(
     brightness: Brightness.dark,
     background: Colors.black,
     foreground: Colors.white,
@@ -66,7 +67,7 @@ class AppTheme {
     colors: GameColors.dark,
   );
 
-  static final light = _build(
+  static ThemeData get light => _build(
     brightness: Brightness.light,
     background: const Color(0xFFF7F4EF),
     foreground: const Color(0xFF1F1C19),
@@ -93,7 +94,8 @@ class AppTheme {
       fontFamily: 'Roboto',
       appBarTheme: AppBarTheme(backgroundColor: background, elevation: 0),
       dialogTheme: DialogThemeData(backgroundColor: dialog),
-      bottomSheetTheme: BottomSheetThemeData(backgroundColor: dialog, showDragHandle: true),
+      // iOS-style screens and alerts use the system blue, like native apps.
+      cupertinoOverrideTheme: CupertinoThemeData(brightness: brightness, primaryColor: CupertinoColors.systemBlue),
       extensions: [colors],
     );
   }

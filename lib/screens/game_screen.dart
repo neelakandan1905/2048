@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../logic/game_controller.dart';
@@ -10,8 +11,9 @@ import '../theme/app_theme.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/game_board.dart';
 import '../widgets/power_up_bar.dart';
+import '../widgets/adaptive_dialog.dart';
 import '../widgets/score_card.dart';
-import 'settings_sheet.dart';
+import 'settings_page.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key, required this.settings});
@@ -43,20 +45,15 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _newGame() async {
     if (_controller.inProgress) {
-      final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-        title: const Text('Start a new game?'),
-        content: const Text('Your current game progress will be lost.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('New game')),
-        ],
-      ));
-      if (confirmed != true) return;
+      final confirmed = await showConfirmDialog(context,
+          title: 'Start a new game?', message: 'Your current game progress will be lost.',
+          confirmLabel: 'New game', destructive: true);
+      if (!confirmed) return;
     }
     await _controller.newGame();
   }
 
-  void _openSettings() => showSettingsSheet(context, settings: widget.settings, onDifficulty: _changeDifficulty);
+  void _openSettings() => openSettings(context, settings: widget.settings, onDifficulty: _changeDifficulty);
 
   /// Difficulty sets the rules of a game, so changing it starts a new one:
   /// straight away before the first move, otherwise after the player confirms.
@@ -64,15 +61,11 @@ class _GameScreenState extends State<GameScreen> {
     if (difficulty == widget.settings.difficulty) return;
     final inProgress = _controller.inProgress;
     if (inProgress) {
-      final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-        title: Text('Switch to ${difficulty.label}?'),
-        content: const Text('Changing the difficulty restarts the game. Your current progress will be lost.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Restart')),
-        ],
-      ));
-      if (confirmed != true) return;
+      final confirmed = await showConfirmDialog(context,
+          title: 'Switch to ${difficulty.label}?',
+          message: 'Changing the difficulty restarts the game. Your current progress will be lost.',
+          confirmLabel: 'Restart', destructive: true);
+      if (!confirmed) return;
     }
     await _controller.changeDifficulty(difficulty);
     if (inProgress) _snack('New ${difficulty.label} game started.');
@@ -117,21 +110,15 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _showWonDialog() async {
-    await showDialog<void>(context: context, barrierDismissible: false, builder: (context) => AlertDialog(
-      title: const Text('2048 reached!'),
-      content: const Text('Excellent work. Keep playing to chase a higher score.'),
-      actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Keep going'))],
-    ));
+    await showNoticeDialog(context, title: '2048 reached!',
+        message: 'Excellent work. Keep playing to chase a higher score.', buttonLabel: 'Keep going');
     await _controller.acknowledgeWin(keepGoing: true);
   }
 
   Future<void> _showLostDialog() async {
     final score = _controller.state.score;
-    await showDialog<void>(context: context, barrierDismissible: false, builder: (context) => AlertDialog(
-      title: const Text('No more moves'),
-      content: Text('Final score: $score'),
-      actions: [FilledButton(onPressed: () { Navigator.pop(context); _controller.newGame(); }, child: const Text('Play again'))],
-    ));
+    await showNoticeDialog(context, title: 'No more moves', message: 'Final score: $score', buttonLabel: 'Play again');
+    await _controller.newGame();
   }
 
   static final _keyMoves = {
@@ -171,7 +158,7 @@ class _GameScreenState extends State<GameScreen> {
                       const Text('2048', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.8)),
                       const Spacer(),
                       IconButton(onPressed: _newGame, icon: Icon(Icons.refresh_rounded, color: iconColor), tooltip: 'New game'),
-                      IconButton(onPressed: _openSettings, icon: Icon(Icons.settings_rounded, color: iconColor), tooltip: 'Settings'),
+                      IconButton(onPressed: _openSettings, icon: Icon(useCupertino(context) ? CupertinoIcons.gear_alt : Icons.settings_rounded, color: iconColor), tooltip: 'Settings'),
                     ]),
                     Align(
                       alignment: Alignment.centerLeft,
