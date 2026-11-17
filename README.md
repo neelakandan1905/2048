@@ -48,5 +48,8 @@ Then open `http://<your-mac-ip>:8090` on the phone. `FREE_REWARDS=true` grants t
 
 On the web, sound and vibration come from `web/feedback.js` (browsers only allow them inside a touch event). iOS Safari has no vibration API; iOS 18+ gets a haptic tick through a hidden switch control.
 
+## Dev environment (GitHub Pages)
+Every push to the `dev` branch runs the tests, builds the web app and publishes it to the `gh-pages` branch (`.github/workflows/deploy-dev.yml`). It is served at **https://neelakandan1905.github.io/2048/**; `build.txt` there shows the deployed commit. Add `?debug=1` to show sound/vibration diagnostics on screen.
+
 ## VS Code
 Install the Flutter extension, then use **Run and Debug → "2048 (Chrome)"** (`.vscode/launch.json`).

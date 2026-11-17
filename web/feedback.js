@@ -18,11 +18,27 @@
     return ua ? { active: ua.isActive, hasBeenActive: ua.hasBeenActive } : 'n/a';
   }
 
+  // Debug output: an on-screen panel (works anywhere, e.g. GitHub Pages) plus
+  // a POST to tools/serve_web.py when served from the Mac.
+  var panel = null;
+  function show(line) {
+    if (!panel) {
+      if (!document.body) return;
+      panel = document.createElement('pre');
+      panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483647;margin:0;' +
+        'max-height:38vh;overflow:auto;padding:6px 8px;background:rgba(0,0,0,.85);color:#9f9;' +
+        'font:11px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;pointer-events:none';
+      document.body.appendChild(panel);
+    }
+    panel.textContent = (line + '\n' + panel.textContent).split('\n').slice(0, 40).join('\n');
+  }
+
   function log(event, data) {
     if (!DEBUG) return;
     try {
       var body = JSON.stringify({ t: Date.now(), event: event, data: data || {} });
-      fetch('/__log', { method: 'POST', body: body, keepalive: true, headers: { 'Content-Type': 'application/json' } }).catch(function () {});
+      show(new Date().toLocaleTimeString() + ' ' + event + ' ' + JSON.stringify(data || {}));
+      fetch('__log', { method: 'POST', body: body, keepalive: true, headers: { 'Content-Type': 'application/json' } }).catch(function () {});
     } catch (e) {}
   }
 
