@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+import '../models/settings.dart';
+import '../theme/app_theme.dart';
 import '../theme/tile_colors.dart';
 
 class GameTile extends StatelessWidget {
-  const GameTile({super.key, required this.value});
+  const GameTile({super.key, required this.value, required this.palette});
   final int value;
+  final TilePalette palette;
   @override
   Widget build(BuildContext context) {
     final digits = value.toString().length;
+    final background = value == 0 ? GameColors.of(context).emptyCell : TileColors.forValue(palette, value);
     final size = digits <= 2 ? 27.0 : digits == 3 ? 23.0 : digits == 4 ? 19.0 : 16.0;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOut,
-      decoration: BoxDecoration(color: TileColors.forValue(value), borderRadius: BorderRadius.circular(9)),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(9)),
       child: Center(
         child: AnimatedScale(
           scale: value == 0 ? .92 : 1,
@@ -22,7 +26,7 @@ class GameTile extends StatelessWidget {
             child: value == 0 ? const SizedBox.shrink(key: ValueKey('empty')) : Text(
               '$value', key: ValueKey(value),
               maxLines: 1, softWrap: false,
-              style: TextStyle(fontSize: size, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -.8),
+              style: TextStyle(fontSize: size, fontWeight: FontWeight.w800, color: TileColors.textOn(background), letterSpacing: -.8),
             ),
           ),
         ),

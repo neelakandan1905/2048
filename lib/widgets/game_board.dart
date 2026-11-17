@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/game_state.dart';
 import '../logic/game_engine.dart';
+import '../models/settings.dart';
+import '../theme/app_theme.dart';
 import 'game_tile.dart';
 
 class GameBoard extends StatefulWidget {
-  const GameBoard({super.key, required this.state, required this.onMove});
+  const GameBoard({super.key, required this.state, required this.onMove, this.palette = TilePalette.sunset});
   final GameState state;
+  final TilePalette palette;
   final ValueChanged<MoveDirection> onMove;
   @override
   State<GameBoard> createState() => _GameBoardState();
@@ -40,7 +43,7 @@ class _GameBoardState extends State<GameBoard> {
       onPanEnd: _end,
       child: Container(
         width: side, height: side, padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: const Color(0xFF1A1A1D), borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: GameColors.of(context).board, borderRadius: BorderRadius.circular(14)),
         child: GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           itemCount: 16,
@@ -48,6 +51,7 @@ class _GameBoardState extends State<GameBoard> {
           itemBuilder: (context, index) => GameTile(
             key: ValueKey('cell_$index'),
             value: widget.state.board[index ~/ 4][index % 4],
+            palette: widget.palette,
           ),
         ),
       ),

@@ -1,4 +1,5 @@
-import 'dart:math';
+import '../logic/game_engine.dart';
+import 'settings.dart';
 
 enum GameStatus { playing, won, lost }
 
@@ -21,7 +22,7 @@ class GameState {
     required this.freeUndos,
     required this.status,
     required this.wonAcknowledged,
-    required this.soundEnabled,
+    required this.moves,
     required this.history,
   });
 
@@ -31,35 +32,24 @@ class GameState {
   final int freeUndos;
   final GameStatus status;
   final bool wonAcknowledged;
-  final bool soundEnabled;
+  /// Moves made this game (hard mode drops an extra tile every few moves).
+  final int moves;
   final List<GameSnapshot> history;
 
-  factory GameState.initial({int bestScore = 0}) {
+  factory GameState.initial({int bestScore = 0, Difficulty difficulty = Difficulty.medium}) {
     final board = List.generate(4, (_) => List<int>.filled(4, 0));
-    _spawn(board);
-    _spawn(board);
+    GameEngine.spawn(board, fourChance: difficulty.fourChance);
+    GameEngine.spawn(board, fourChance: difficulty.fourChance);
     return GameState(
-      board: board, score: 0, bestScore: bestScore, freeUndos: 1,
+      board: board, score: 0, bestScore: bestScore, freeUndos: difficulty.freeUndos,
       status: GameStatus.playing, wonAcknowledged: false,
-      soundEnabled: true, history: const [],
+      moves: 0, history: const [],
     );
-  }
-
-  static void _spawn(List<List<int>> board) {
-    final empty = <Point<int>>[];
-    for (var r = 0; r < 4; r++) {
-      for (var c = 0; c < 4; c++) {
-        if (board[r][c] == 0) empty.add(Point(r, c));
-      }
-    }
-    if (empty.isEmpty) return;
-    final cell = empty[Random().nextInt(empty.length)];
-    board[cell.x][cell.y] = Random().nextDouble() < .9 ? 2 : 4;
   }
 
   GameState copyWith({
     List<List<int>>? board, int? score, int? bestScore, int? freeUndos,
-    GameStatus? status, bool? wonAcknowledged, bool? soundEnabled,
+    GameStatus? status, bool? wonAcknowledged, int? moves,
     List<GameSnapshot>? history,
   }) => GameState(
     board: board ?? this.board, score: score ?? this.score,
@@ -67,7 +57,7 @@ class GameState {
     freeUndos: freeUndos ?? this.freeUndos,
     status: status ?? this.status,
     wonAcknowledged: wonAcknowledged ?? this.wonAcknowledged,
-    soundEnabled: soundEnabled ?? this.soundEnabled,
+    moves: moves ?? this.moves,
     history: history ?? this.history,
   );
 }

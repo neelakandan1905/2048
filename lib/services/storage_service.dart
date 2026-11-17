@@ -8,12 +8,13 @@ class StorageService {
   final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
   static const _stateKey = 'game_state_v1';
   static const _interstitialKey = 'last_interstitial_ms';
+  static const _settingsKey = 'settings_v1';
 
   Future<void> save(GameState state) async {
     final payload = {
       'board': state.board, 'score': state.score, 'bestScore': state.bestScore,
       'freeUndos': state.freeUndos, 'status': state.status.name,
-      'wonAcknowledged': state.wonAcknowledged, 'soundEnabled': state.soundEnabled,
+      'wonAcknowledged': state.wonAcknowledged, 'moves': state.moves,
       'history': state.history.map((s) => {'board': s.board, 'score': s.score}).toList(),
     };
     await _prefs.setString(_stateKey, jsonEncode(payload));
@@ -39,9 +40,23 @@ class StorageService {
         freeUndos: map['freeUndos'] as int? ?? 1,
         status: GameStatus.values.firstWhere((s) => s.name == map['status'], orElse: () => GameStatus.playing),
         wonAcknowledged: map['wonAcknowledged'] as bool? ?? false,
-        soundEnabled: map['soundEnabled'] as bool? ?? true,
+        moves: map['moves'] as int? ?? 0,
         history: history,
       );
+    } catch (_) { return null; }
+  }
+
+  Future<void> saveSettings(Map<String, Object> settings) =>
+      _prefs.setString(_settingsKey, jsonEncode(settings));
+
+  Future<Map<String, dynamic>?> loadSettings() async {
+    final raw = await _prefs.getString(_settingsKey);
+    try {
+      if (raw != null) return jsonDecode(raw) as Map<String, dynamic>;
+      // Before settings existed, the sound switch was saved with the game.
+      final old = await _prefs.getString(_stateKey);
+      final sound = old == null ? null : (jsonDecode(old) as Map<String, dynamic>)['soundEnabled'];
+      return sound is bool ? {'soundEnabled': sound} : null;
     } catch (_) { return null; }
   }
 

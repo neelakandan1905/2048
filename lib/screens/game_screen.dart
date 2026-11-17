@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../logic/game_controller.dart';
 import '../logic/game_engine.dart';
+import '../logic/settings_controller.dart';
 import '../models/game_state.dart';
+import '../models/settings.dart';
 import '../services/ad_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/game_board.dart';
 import '../widgets/power_up_bar.dart';
 import '../widgets/score_card.dart';
+import 'settings_sheet.dart';
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  const GameScreen({super.key, required this.settings});
+  final SettingsController settings;
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -19,7 +24,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = GameController();
+    _controller = GameController(settings: widget.settings);
     _controller.restore().then((_) => _showEndDialogIfNeeded());
   }
 
@@ -37,11 +42,8 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() { _controller.dispose(); super.dispose(); }
 
   Future<void> _newGame() async {
-    final s = _controller.state;
-    final inProgress = s.score > 0 || s.history.isNotEmpty;
-    if (inProgress) {
+    if (_controller.inProgress) {
       final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF181818),
         title: const Text('Start a new game?'),
         content: const Text('Your current game progress will be lost.'),
         actions: [
@@ -52,6 +54,28 @@ class _GameScreenState extends State<GameScreen> {
       if (confirmed != true) return;
     }
     await _controller.newGame();
+  }
+
+  void _openSettings() => showSettingsSheet(context, settings: widget.settings, onDifficulty: _changeDifficulty);
+
+  /// Difficulty sets the rules of a game, so changing it starts a new one:
+  /// straight away before the first move, otherwise after the player confirms.
+  Future<void> _changeDifficulty(Difficulty difficulty) async {
+    if (difficulty == widget.settings.difficulty) return;
+    final inProgress = _controller.inProgress;
+    if (inProgress) {
+      final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+        title: Text('Switch to ${difficulty.label}?'),
+        content: const Text('Changing the difficulty restarts the game. Your current progress will be lost.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Restart')),
+        ],
+      ));
+      if (confirmed != true) return;
+    }
+    await _controller.changeDifficulty(difficulty);
+    if (inProgress) _snack('New ${difficulty.label} game started.');
   }
 
   void _undo() {
@@ -94,7 +118,6 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _showWonDialog() async {
     await showDialog<void>(context: context, barrierDismissible: false, builder: (context) => AlertDialog(
-      backgroundColor: const Color(0xFF181818),
       title: const Text('2048 reached!'),
       content: const Text('Excellent work. Keep playing to chase a higher score.'),
       actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Keep going'))],
@@ -105,7 +128,6 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _showLostDialog() async {
     final score = _controller.state.score;
     await showDialog<void>(context: context, barrierDismissible: false, builder: (context) => AlertDialog(
-      backgroundColor: const Color(0xFF181818),
       title: const Text('No more moves'),
       content: Text('Final score: $score'),
       actions: [FilledButton(onPressed: () { Navigator.pop(context); _controller.newGame(); }, child: const Text('Play again'))],
@@ -129,9 +151,11 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) => Focus(autofocus: true, onKeyEvent: _onKey, child: AnimatedBuilder(
-    animation: _controller,
+    animation: Listenable.merge([_controller, widget.settings]),
     builder: (context, _) {
       final state = _controller.state;
+      final colors = GameColors.of(context);
+      final iconColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: .7);
       return Scaffold(
         body: SafeArea(child: Column(children: [
           Expanded(child: LayoutBuilder(builder: (context, constraints) {
@@ -146,28 +170,28 @@ class _GameScreenState extends State<GameScreen> {
                     Row(children: [
                       const Text('2048', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.8)),
                       const Spacer(),
-                      IconButton(
-                        tooltip: state.soundEnabled ? 'Mute sounds' : 'Enable sounds',
-                        onPressed: _controller.toggleSound,
-                        icon: Icon(state.soundEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded, color: Colors.white70),
-                      ),
-                      IconButton(onPressed: _newGame, icon: const Icon(Icons.refresh_rounded, color: Colors.white70), tooltip: 'New game'),
+                      IconButton(onPressed: _newGame, icon: Icon(Icons.refresh_rounded, color: iconColor), tooltip: 'New game'),
+                      IconButton(onPressed: _openSettings, icon: Icon(Icons.settings_rounded, color: iconColor), tooltip: 'Settings'),
                     ]),
-                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('${widget.settings.difficulty.label} mode', style: TextStyle(color: colors.muted, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(height: 10),
                     Row(children: [
                       Expanded(child: ScoreCard(label: 'Score', value: state.score)),
                       const SizedBox(width: 10),
                       Expanded(child: ScoreCard(label: 'Best', value: state.bestScore)),
                     ]),
                     const SizedBox(height: 22),
-                    Center(child: SizedBox(width: boardSide, child: GameBoard(state: state, onMove: _handleMove))),
+                    Center(child: SizedBox(width: boardSide, child: GameBoard(state: state, onMove: _handleMove, palette: widget.settings.palette))),
                     const SizedBox(height: 18),
                     PowerUpBar(
                       freeUndos: state.freeUndos, canUndo: state.history.isNotEmpty,
                       onUndo: _undo, onClear: _clearTwos,
                     ),
                     const SizedBox(height: 12),
-                    const Text('Join the numbers. Reach 2048.', style: TextStyle(color: Color(0xFF777777), fontSize: 12)),
+                    Text('Join the numbers. Reach 2048.', style: TextStyle(color: colors.muted, fontSize: 12)),
                   ]),
                 ),
               ),

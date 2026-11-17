@@ -1,3 +1,5 @@
+import 'dart:math';
+
 enum MoveDirection { up, down, left, right }
 
 class MoveResult {
@@ -48,6 +50,20 @@ class GameEngine {
     }
     final moved = !_same(source, board);
     return MoveResult(board: board, scoreGained: gained, moved: moved, merged: merged);
+  }
+
+  static final _random = Random();
+
+  /// Puts a 2 (or, with [fourChance], a 4) on a random empty cell.
+  static void spawn(List<List<int>> board, {double fourChance = .1, Random? random}) {
+    final rng = random ?? _random;
+    final empty = <(int, int)>[];
+    for (var r = 0; r < 4; r++) {
+      for (var c = 0; c < 4; c++) { if (board[r][c] == 0) empty.add((r, c)); }
+    }
+    if (empty.isEmpty) return;
+    final (r, c) = empty[rng.nextInt(empty.length)];
+    board[r][c] = rng.nextDouble() < fourChance ? 4 : 2;
   }
 
   static bool hasMoves(List<List<int>> board) {
