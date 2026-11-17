@@ -6,12 +6,21 @@
 // Open the page with ?debug=1 to send diagnostics to tools/serve_web.py
 // (POST /__log), which prints them on the Mac.
 (function () {
-  var BUILD = 'feedback-v2';
+  var BUILD = 'feedback-v3';
   var DEBUG = /[?&]debug=1/.test(location.search);
   var ctx = null;
-  var sw = null;
   var unlockedBy = null;
   var AC = window.AudioContext || window.webkitAudioContext;
+
+  // iOS mutes web audio while the ring/silent switch is on, unless the page
+  // asks for a "playback" audio session (Safari 17+).
+  var audioSession = 'n/a';
+  try {
+    if (navigator.audioSession) {
+      navigator.audioSession.type = 'playback';
+      audioSession = navigator.audioSession.type;
+    }
+  } catch (e) { audioSession = 'error: ' + e; }
 
   function activation() {
     var ua = navigator.userActivation;
@@ -87,18 +96,18 @@
   // iOS Safari has no Vibration API; since iOS 18 toggling a native
   // <input type="checkbox" switch> gives a haptic tick during a user gesture.
   function iosHaptic() {
-    if (!sw) {
-      sw = document.createElement('label');
-      sw.setAttribute('aria-hidden', 'true');
-      sw.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none';
-      var input = document.createElement('input');
-      input.type = 'checkbox';
-      input.setAttribute('switch', '');
-      input.tabIndex = -1;
-      sw.appendChild(input);
-      document.body.appendChild(sw);
-    }
-    sw.click();
+    // A fresh hidden switch each time, clicked through its <label>: the pattern
+    // that reliably triggers the haptic on iOS 18+.
+    var label = document.createElement('label');
+    label.setAttribute('aria-hidden', 'true');
+    label.style.display = 'none';
+    var input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('switch', '');
+    label.appendChild(input);
+    document.head.appendChild(label);
+    label.click();
+    document.head.removeChild(label);
   }
 
   var VIBRATE = { move: 25, merge: 45, milestone: [70, 50, 90] };
@@ -138,6 +147,8 @@
     userAgent: navigator.userAgent,
     hasVibrate: typeof navigator.vibrate === 'function',
     hasAudioContext: !!AC,
+    audioSession: audioSession,
+    hasSwitchInput: (function () { var i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); return 'switch' in i; })(),
     secureContext: window.isSecureContext,
     standalone: !!(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))
   });

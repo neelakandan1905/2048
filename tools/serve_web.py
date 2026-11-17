@@ -37,7 +37,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, fmt, *args):
-        if "/__log" not in (args[0] if args else ""):
+        if "/__log" not in (str(args[0]) if args else ""):
             sys.stderr.write("%s - %s\n" % (self.client_address[0], fmt % args))
 
 
