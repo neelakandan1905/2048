@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_2048/app.dart';
+import 'package:game_2048/logic/game_controller.dart';
 import 'package:game_2048/logic/settings_controller.dart';
 import 'package:game_2048/models/settings.dart';
 import 'package:game_2048/screens/settings_page.dart';
@@ -37,6 +38,24 @@ void main() {
     await tester.pumpAndSettle();
     return settings;
   }
+
+  testWidgets('back from Settings returns to the same game', (tester) async {
+    await pumpGame(tester, score: 40);
+    expect(find.text('DIFFICULTY'), findsOneWidget);
+
+    // What the browser back button / iOS back swipe sends on the web.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('DIFFICULTY'), findsNothing);
+    expect(find.text('40'), findsNWidgets(2)); // score and best kept, no reload
+
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('DIFFICULTY'), findsNothing);
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   testWidgets('changing difficulty mid-game asks first, then restarts', (tester) async {
     final settings = await pumpGame(tester, score: 40);
@@ -86,21 +105,24 @@ void main() {
 }
 
 /// Opens Settings from a bare app built for [platform] (no ads involved).
-Future<(SettingsController, List<Difficulty>)> _openFor(WidgetTester tester, TargetPlatform platform) async {
+Future<SettingsController> _openFor(WidgetTester tester, TargetPlatform platform) async {
   final settings = SettingsController();
   await settings.setSoundEnabled(false);
-  final picked = <Difficulty>[];
+  final controller = GameController(settings: settings);
   await tester.binding.setSurfaceSize(const Size(390, 900));
   await tester.pumpWidget(MaterialApp(
     theme: AppTheme.light.copyWith(platform: platform),
-    home: Builder(builder: (context) => Scaffold(body: TextButton(
-      onPressed: () => openSettings(context, settings: settings, onDifficulty: (d) async => picked.add(d)),
-      child: const Text('open'),
-    ))),
+    routes: {
+      '/': (context) => Scaffold(body: TextButton(
+            onPressed: () => Navigator.pushNamed(context, settingsRouteName),
+            child: const Text('open'),
+          )),
+      settingsRouteName: (context) => SettingsPage(settings: settings, controller: controller),
+    },
   ));
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
-  return (settings, picked);
+  return settings;
 }
 
 void _platformTests() {
@@ -112,7 +134,7 @@ void _platformTests() {
   });
 
   testWidgets('Android gets Material settings with choice dialogs', (tester) async {
-    final (settings, picked) = await _openFor(tester, TargetPlatform.android);
+    final settings = await _openFor(tester, TargetPlatform.android);
     expect(find.byType(MaterialSettingsPage), findsOneWidget);
     expect(find.text('System default'), findsOneWidget);
 
@@ -120,7 +142,7 @@ void _platformTests() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Hard'));
     await tester.pumpAndSettle();
-    expect(picked, [Difficulty.hard]);
+    expect(settings.difficulty, Difficulty.hard); // no moves yet, so no restart prompt
 
     await tester.tap(find.text('Theme'));
     await tester.pumpAndSettle();

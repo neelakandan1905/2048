@@ -1,28 +1,54 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../logic/game_controller.dart';
 import '../logic/settings_controller.dart';
 import '../models/settings.dart';
 import '../theme/tile_colors.dart';
 import '../widgets/adaptive_dialog.dart';
 
-/// Opens Settings as a full page in the device's own style: an iOS Settings
-/// look on iPhone/iPad/Mac, Material settings on Android and elsewhere.
-/// Appearance and sound apply immediately; difficulty goes through
-/// [onDifficulty], which restarts the game (asking first mid-game).
-Future<void> openSettings(
-  BuildContext context, {
-  required SettingsController settings,
-  required Future<void> Function(Difficulty) onDifficulty,
-}) {
-  Widget page(BuildContext context) => ListenableBuilder(
+/// Route name of the settings page. On the web this becomes `#/settings`, a
+/// real browser history entry, so back (button or iOS edge swipe) returns to
+/// the game instead of leaving and reloading the page.
+const settingsRouteName = '/settings';
+
+/// Settings in the device's own style: an iOS Settings look on
+/// iPhone/iPad/Mac, Material settings on Android and elsewhere. Appearance
+/// and sound apply immediately; difficulty restarts the game (asking first
+/// mid-game).
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key, required this.settings, required this.controller});
+  final SettingsController settings;
+  final GameController controller;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
         listenable: settings,
-        builder: (context, _) => useCupertino(context)
-            ? CupertinoSettingsPage(settings: settings, onDifficulty: onDifficulty)
-            : MaterialSettingsPage(settings: settings, onDifficulty: onDifficulty),
+        builder: (context, _) {
+          Future<void> onDifficulty(Difficulty d) => changeDifficulty(context, controller, d);
+          return useCupertino(context)
+              ? CupertinoSettingsPage(settings: settings, onDifficulty: onDifficulty)
+              : MaterialSettingsPage(settings: settings, onDifficulty: onDifficulty);
+        },
       );
-  return Navigator.of(context).push(
-    useCupertino(context) ? CupertinoPageRoute<void>(builder: page) : MaterialPageRoute<void>(builder: page),
-  );
+}
+
+/// Difficulty sets the rules of a game, so changing it starts a new one:
+/// straight away before the first move, otherwise after the player confirms.
+Future<void> changeDifficulty(BuildContext context, GameController controller, Difficulty difficulty) async {
+  if (difficulty == controller.settings.difficulty) return;
+  final inProgress = controller.inProgress;
+  if (inProgress) {
+    final confirmed = await showConfirmDialog(context,
+        title: 'Switch to ${difficulty.label}?',
+        message: 'Changing the difficulty restarts the game. Your current progress will be lost.',
+        confirmLabel: 'Restart', destructive: true);
+    if (!confirmed) return;
+  }
+  await controller.changeDifficulty(difficulty);
+  if (inProgress && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('New ${difficulty.label} game started.'), behavior: SnackBarBehavior.floating));
+  }
 }
 
 String _themeLabel(ThemeMode mode, {required bool cupertino}) => switch (mode) {

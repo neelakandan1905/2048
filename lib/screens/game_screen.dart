@@ -16,17 +16,17 @@ import '../widgets/score_card.dart';
 import 'settings_page.dart';
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key, required this.settings});
+  const GameScreen({super.key, required this.settings, required this.controller});
   final SettingsController settings;
+  final GameController controller;
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 class _GameScreenState extends State<GameScreen> {
-  late final GameController _controller;
+  GameController get _controller => widget.controller;
   @override
   void initState() {
     super.initState();
-    _controller = GameController(settings: widget.settings);
     _controller.restore().then((_) => _showEndDialogIfNeeded());
   }
 
@@ -40,8 +40,6 @@ class _GameScreenState extends State<GameScreen> {
       case GameStatus.playing: break;
     }
   }
-  @override
-  void dispose() { _controller.dispose(); super.dispose(); }
 
   Future<void> _newGame() async {
     if (_controller.inProgress) {
@@ -53,23 +51,9 @@ class _GameScreenState extends State<GameScreen> {
     await _controller.newGame();
   }
 
-  void _openSettings() => openSettings(context, settings: widget.settings, onDifficulty: _changeDifficulty);
-
-  /// Difficulty sets the rules of a game, so changing it starts a new one:
-  /// straight away before the first move, otherwise after the player confirms.
-  Future<void> _changeDifficulty(Difficulty difficulty) async {
-    if (difficulty == widget.settings.difficulty) return;
-    final inProgress = _controller.inProgress;
-    if (inProgress) {
-      final confirmed = await showConfirmDialog(context,
-          title: 'Switch to ${difficulty.label}?',
-          message: 'Changing the difficulty restarts the game. Your current progress will be lost.',
-          confirmLabel: 'Restart', destructive: true);
-      if (!confirmed) return;
-    }
-    await _controller.changeDifficulty(difficulty);
-    if (inProgress) _snack('New ${difficulty.label} game started.');
-  }
+  // A named route, so on the web Settings gets its own URL (#/settings) and
+  // the browser's back button / iOS back swipe returns here without a reload.
+  void _openSettings() => Navigator.pushNamed(context, settingsRouteName);
 
   void _undo() {
     final s = _controller.state;
