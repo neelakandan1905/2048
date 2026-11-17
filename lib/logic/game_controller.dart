@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../models/game_state.dart';
 import 'game_engine.dart';
 import '../services/storage_service.dart';
-import '../services/haptic_service.dart';
 import '../services/ad_service.dart';
 import '../services/sound_service.dart';
 
@@ -36,16 +35,8 @@ class GameController extends ChangeNotifier {
       board: board, score: score, bestScore: max(_state.bestScore, score),
       history: history, status: lost ? GameStatus.lost : (won ? GameStatus.won : GameStatus.playing),
     );
-    // Feedback runs before the first await so that, on the web, it stays
-    // inside the touch/key event (phone browsers require that). One haptic per
-    // move: the strongest that applies.
-    if (won || lost) {
-      HapticService.milestone();
-    } else if (result.merged) {
-      HapticService.merge();
-    } else {
-      HapticService.move();
-    }
+    // Sound plays before the first await so that, on the web, it stays inside
+    // the touch/key event (phone browsers require that).
     if (_state.soundEnabled) {
       result.merged ? SoundService.instance.merge() : SoundService.instance.move();
     }

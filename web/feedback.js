@@ -1,12 +1,12 @@
-// Sound and vibration for the web build. Phone browsers only allow audio and
-// vibration from inside a real touch/key event, so the audio context is
-// unlocked on the first interaction and sounds are synthesised instantly
-// (no file loading that would lose the user-gesture window).
+// Sound for the web build. Phone browsers only let audio start inside a real
+// tap or key press (on iPhone a swipe doesn't count), so the audio context is
+// unlocked by the first tap - a one-time "Tap to play" screen on phones - and
+// sounds are synthesised instantly (no file loading).
 //
 // Open the page with ?debug=1 to send diagnostics to tools/serve_web.py
 // (POST /__log), which prints them on the Mac.
 (function () {
-  var BUILD = 'feedback-v4';
+  var BUILD = 'feedback-v5';
   var DEBUG = /[?&]debug=1/.test(location.search);
   var ctx = null;
   var unlockedBy = null;
@@ -79,20 +79,6 @@
     document.addEventListener(t, unlock, { capture: true, passive: true });
   });
 
-  // iOS doesn't treat a swipe as a user gesture, so a haptic requested while
-  // the swipe is handled is retried when the finger lifts (touchend/click).
-  var pendingHaptic = null;
-  function flushHaptic(e) {
-    if (!pendingHaptic) return;
-    var kind = pendingHaptic;
-    pendingHaptic = null;
-    try { iosHaptic(); } catch (err) {}
-    log('haptic-flush', { kind: kind, by: e.type, activation: activation() });
-  }
-  ['touchend', 'click'].forEach(function (t) {
-    document.addEventListener(t, flushHaptic, { capture: true, passive: true });
-  });
-
   // Phones block sound until the first tap, and a swipe doesn't count, so
   // show a one-time "Tap to play" screen on touch devices.
   function showTapToStart() {
@@ -105,7 +91,6 @@
     o.textContent = 'Tap to play';
     o.addEventListener('click', function () {
       unlock({ type: 'tap-to-start' });
-      try { iosHaptic(); } catch (err) {}
       o.remove();
       log('tap-to-start', { state: ctx && ctx.state, activation: activation() });
     });
@@ -128,25 +113,6 @@
     osc.stop(start + dur + 0.02);
   }
 
-  // iOS Safari has no Vibration API; since iOS 18 toggling a native
-  // <input type="checkbox" switch> gives a haptic tick during a user gesture.
-  function iosHaptic() {
-    // A fresh hidden switch each time, clicked through its <label>: the pattern
-    // that reliably triggers the haptic on iOS 18+.
-    var label = document.createElement('label');
-    label.setAttribute('aria-hidden', 'true');
-    label.style.display = 'none';
-    var input = document.createElement('input');
-    input.type = 'checkbox';
-    input.setAttribute('switch', '');
-    label.appendChild(input);
-    document.head.appendChild(label);
-    label.click();
-    document.head.removeChild(label);
-  }
-
-  var VIBRATE = { move: 25, merge: 45, milestone: [70, 50, 90] };
-
   window.gameFeedback = {
     sound: function (kind) {
       try {
@@ -160,25 +126,6 @@
       } catch (err) {
         log('sound-error', { kind: kind, error: String(err) });
       }
-    },
-    haptic: function (kind) {
-      try {
-        if (typeof navigator.vibrate === 'function') {
-          var ok = navigator.vibrate(VIBRATE[kind] || 25);
-          log('haptic', { kind: kind, method: 'navigator.vibrate', accepted: ok, activation: activation() });
-        } else {
-          var ua = navigator.userActivation;
-          if (ua && !ua.isActive) {
-            pendingHaptic = kind;
-            log('haptic-deferred', { kind: kind, activation: activation() });
-          } else {
-            iosHaptic();
-            log('haptic', { kind: kind, method: 'ios-switch', activation: activation() });
-          }
-        }
-      } catch (err) {
-        log('haptic-error', { kind: kind, error: String(err) });
-      }
     }
   };
 
@@ -186,10 +133,8 @@
   log('load', {
     build: BUILD,
     userAgent: navigator.userAgent,
-    hasVibrate: typeof navigator.vibrate === 'function',
     hasAudioContext: !!AC,
     audioSession: audioSession,
-    hasSwitchInput: (function () { var i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); return 'switch' in i; })(),
     secureContext: window.isSecureContext,
     standalone: !!(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))
   });
