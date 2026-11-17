@@ -1,0 +1,56 @@
+# Dev environment: every push to `dev` runs the tests, builds the Flutter web
+# app and publishes it to the `gh-pages` branch, served by GitHub Pages at
+# https://neelakandan1905.github.io/2048/
+name: Deploy dev web app
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.50.0
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build web (dev)
+        # FREE_REWARDS grants the rewarded power-ups without ads (no ads on web).
+        run: >
+          flutter build web --release
+          --base-href /2048/
+          --web-content-hash
+          --dart-define=FREE_REWARDS=true
+
+      - name: Prepare Pages output
+        run: |
+          touch build/web/.nojekyll
+          echo "${GITHUB_SHA::7}" > build/web/build.txt
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "Deploy dev ${{ github.sha }}"
