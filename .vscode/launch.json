@@ -1,0 +1,7 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    { "name": "2048 (Chrome)", "type": "dart", "request": "launch", "program": "lib/main.dart", "deviceId": "chrome" },
+    { "name": "2048 (device / emulator)", "type": "dart", "request": "launch", "program": "lib/main.dart" }
+  ]
+}
