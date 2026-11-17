@@ -6,7 +6,7 @@
 // Open the page with ?debug=1 to send diagnostics to tools/serve_web.py
 // (POST /__log), which prints them on the Mac.
 (function () {
-  var BUILD = 'feedback-v3';
+  var BUILD = 'feedback-v4';
   var DEBUG = /[?&]debug=1/.test(location.search);
   var ctx = null;
   var unlockedBy = null;
@@ -79,6 +79,41 @@
     document.addEventListener(t, unlock, { capture: true, passive: true });
   });
 
+  // iOS doesn't treat a swipe as a user gesture, so a haptic requested while
+  // the swipe is handled is retried when the finger lifts (touchend/click).
+  var pendingHaptic = null;
+  function flushHaptic(e) {
+    if (!pendingHaptic) return;
+    var kind = pendingHaptic;
+    pendingHaptic = null;
+    try { iosHaptic(); } catch (err) {}
+    log('haptic-flush', { kind: kind, by: e.type, activation: activation() });
+  }
+  ['touchend', 'click'].forEach(function (t) {
+    document.addEventListener(t, flushHaptic, { capture: true, passive: true });
+  });
+
+  // Phones block sound until the first tap, and a swipe doesn't count, so
+  // show a one-time "Tap to play" screen on touch devices.
+  function showTapToStart() {
+    if (!AC || !('ontouchstart' in window) || !document.body) return;
+    var o = document.createElement('div');
+    o.setAttribute('role', 'button');
+    o.style.cssText = 'position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;' +
+      'justify-content:center;background:rgba(0,0,0,.72);color:#fff;' +
+      'font:600 22px/1.3 -apple-system,system-ui,sans-serif;letter-spacing:.02em;cursor:pointer';
+    o.textContent = 'Tap to play';
+    o.addEventListener('click', function () {
+      unlock({ type: 'tap-to-start' });
+      try { iosHaptic(); } catch (err) {}
+      o.remove();
+      log('tap-to-start', { state: ctx && ctx.state, activation: activation() });
+    });
+    document.body.appendChild(o);
+  }
+  if (document.body) showTapToStart();
+  else document.addEventListener('DOMContentLoaded', showTapToStart);
+
   function tone(freq, start, dur, vol) {
     var osc = ctx.createOscillator();
     var gain = ctx.createGain();
@@ -132,8 +167,14 @@
           var ok = navigator.vibrate(VIBRATE[kind] || 25);
           log('haptic', { kind: kind, method: 'navigator.vibrate', accepted: ok, activation: activation() });
         } else {
-          iosHaptic();
-          log('haptic', { kind: kind, method: 'ios-switch', activation: activation() });
+          var ua = navigator.userActivation;
+          if (ua && !ua.isActive) {
+            pendingHaptic = kind;
+            log('haptic-deferred', { kind: kind, activation: activation() });
+          } else {
+            iosHaptic();
+            log('haptic', { kind: kind, method: 'ios-switch', activation: activation() });
+          }
         }
       } catch (err) {
         log('haptic-error', { kind: kind, error: String(err) });
